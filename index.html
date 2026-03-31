@@ -565,6 +565,14 @@ function badgeLabel(tipo) {
   return m[tipo] || tipo;
 }
 
+function makeLinksClickable(text) {
+  if (!text) return "";
+  var urlRegex = /(https?:\/\/[^\s]+)/g;
+  return text.replace(urlRegex, function(url) {
+    return '<a href="' + url + '" target="_blank" style="color:var(--accent);text-decoration:underline;">' + url + '</a>';
+  });
+}
+
 function renderVagas(vagas) {
   const container = document.getElementById('resultado-busca');
   if (!vagas.length) {
@@ -590,7 +598,7 @@ function renderVagas(vagas) {
           <span class="tag">💰 ${v.salario}</span>
           <span class="tag">📅 ${v.prazo}</span>
         </div>
-        <div class="vaga-desc">${v.descricao}</div>
+        <div class="vaga-desc">${makeLinksClickable(v.descricao)}</div>
         <div class="vaga-actions">
           <button class="btn btn-outline" onclick="copiarVaga(${i})">📋 Copiar</button>
           <button class="btn btn-outline" onclick="compartilharVaga(${i})">📤 Compartilhar</button>
