@@ -19,8 +19,11 @@ exports.handler = async (event) => {
         contents: [{
           parts: [{ text: prompt }]
         }],
+        tools: [
+          { googleSearch: {} }
+        ],
         generationConfig: {
-            temperature: 0.7,
+            temperature: 0.1,
         }
       })
     });

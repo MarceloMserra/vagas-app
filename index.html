@@ -512,22 +512,25 @@ async function buscarVagas() {
     <div class="loading-text">Pesquisando vagas de Gestão Pública em Brasília/DF...<br><small>Isso pode levar alguns segundos</small></div>
   </div>`;
 
-  const prompt = `Você é um assistente especializado em mercado de trabalho para Gestão Pública no Brasil.
-Gere uma lista realista de ${tipo === 'concurso' ? '6 concursos públicos abertos ou previstos' : '6 vagas de emprego'} para a área de ${area} em Brasília/DF${kw ? ', relacionadas a: ' + kw : ''}.
-Tipo de vaga: ${tipo === 'todas' ? 'misturado (concurso, CLT, PJ, ONG)' : tipo}.
+const prompt = `Você é um headhunter corporativo e especialista em RH. Você TEM acesso à internet e deve buscar vagas REAIS, ATUAIS E VERDADEIRAS disponíveis hoje.
 
-Responda APENAS com um JSON válido, sem markdown, sem explicação, neste formato exato:
+CURRÍCULO DO CANDIDATO:
+${curriculoSalvo}
+
+Sua tarefa: Pesquise na internet vagas de emprego reais (CLT, PJ, Concurso, etc) na área de ${area} em Brasília/DF ou Remotas, focando no perfil acadêmico e profissional acima. Traga no mínimo 6 vagas muito compatíveis. NÃO INVENTE VAGAS.
+
+Responda APENAS com um JSON válido correspondente, neste formato exato:
 {
   "vagas": [
     {
-      "cargo": "Nome do cargo",
-      "empresa": "Nome do órgão ou empresa",
-      "tipo": "concurso|clt|pj|estagio|voluntario",
-      "local": "Brasília/DF",
-      "salario": "Faixa salarial ou remuneração",
-      "requisitos": ["Requisito 1", "Requisito 2", "Requisito 3"],
-      "descricao": "Breve descrição das atividades (2 frases)",
-      "prazo": "Data prevista ou 'Aberto'"
+      "cargo": "Nome do cargo real",
+      "empresa": "Nome da empresa verdadeira",
+      "tipo": "clt|pj|concurso",
+      "local": "Local da vaga / Remoto",
+      "salario": "Faixa salarial ou Não divulgado",
+      "requisitos": ["Requisito 1", "Requisito 2"],
+      "descricao": "Resumo real da vaga. Incluir o LINK para a vaga, se possível, aqui.",
+      "prazo": "Data de inscrição ou Aberto"
     }
   ]
 }`;
@@ -691,12 +694,17 @@ function compartilharAnalise() {
 window.onload = () => {
   const c = localStorage.getItem('vagasgp_curriculo');
   const n = localStorage.getItem('vagasgp_nome');
+  
   if (c) {
     curriculoSalvo = c;
-    nomeSalvo = n || "Candidata";
+    nomeSalvo = n || "Fernanda de Oliveira Fonseca";
+  }
+
+  // Se já temos um currículo (seja do local storage ou o preenchido no código)
+  if (curriculoSalvo) {
     document.getElementById('nome-candidata').value = nomeSalvo;
-    document.getElementById('curriculo-texto').value = c;
-    document.getElementById('curriculo-preview').textContent = c.substring(0, 200) + (c.length > 200 ? '...' : '');
+    document.getElementById('curriculo-texto').value = curriculoSalvo;
+    document.getElementById('curriculo-preview').textContent = curriculoSalvo.substring(0, 200) + (curriculoSalvo.length > 200 ? '...' : '');
     document.getElementById('curriculo-salvo').style.display = 'block';
     document.querySelector('#tab-curriculo .card').style.display = 'none';
   }
