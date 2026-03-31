@@ -517,7 +517,10 @@ const prompt = `Você é um headhunter corporativo e especialista em RH. Você T
 CURRÍCULO DO CANDIDATO:
 ${curriculoSalvo}
 
-Sua tarefa: Pesquise na internet vagas de emprego reais (CLT, PJ, Concurso, etc) na área de ${area} em Brasília/DF ou Remotas, focando no perfil acadêmico e profissional acima. Traga no mínimo 30 vagas muito compatíveis. Faça uma pesquisa extensa antes de compilar a resposta final. NÃO INVENTE VAGAS.
+Sua tarefa: Pesquise na internet *EXCLUSIVAMENTE* vagas de emprego reais (CLT, PJ, Concurso, etc) localizadas ESTRITAMENTE no Distrito Federal (Brasília/DF) ou que sejam 100% Home Office/Remotas. 
+CRÍTICO: Filtre SOMENTE vagas que correspondam com exatidão ao perfil acadêmico (cursando Gestão Pública, experiências administrativas, pacote Office avançado, etc). Vagas fora do escopo do currículo DEVEM ser descartadas.
+
+Traga em torno de 15 a 20 vagas EXTREMAMENTE COMPATÍVEIS. Faça uma pesquisa real nos buscadores. NÃO INVENTE VAGAS, NÃO TRAGA VAGAS DE OUTROS ESTADOS, E NÃO TRAGA VAGAS FORA DO PERFIL.
 
 Responda APENAS com um JSON válido correspondente, neste formato exato:
 {
