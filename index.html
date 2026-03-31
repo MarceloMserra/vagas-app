@@ -389,7 +389,7 @@
 </div>
 
 <script>
-const ANTHROPIC_KEY = ""; // Deixe vazio — o app usa o proxy do servidor
+const GEMINI_KEY = ""; // Deixe vazio — o app usa o proxy do servidor
 
 let vagasEncontradas = [];
 let curriculoSalvo = "";
@@ -483,16 +483,13 @@ Responda APENAS com um JSON válido, sem markdown, sem explicação, neste forma
     const resp = await fetch("/.netlify/functions/api", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1800,
-        messages: [{ role: "user", content: prompt }]
-      })
+      body: JSON.stringify({ prompt })
     });
 
     const data = await resp.json();
-    const raw = data.content?.map(b => b.text || "").join("").trim();
-    const json = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    if (data.error) throw new Error(data.error);
+    const raw = data.text.trim();
+    const json = JSON.parse(raw.replace(/```json|```/g, '').replace(/```/g, '').trim());
     vagasEncontradas = json.vagas || [];
     renderVagas(vagasEncontradas);
   } catch (e) {
@@ -601,15 +598,12 @@ Seja específico, prático e animador. Escreva em português, de forma clara e e
     const resp = await fetch("/.netlify/functions/api", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1200,
-        messages: [{ role: "user", content: prompt }]
-      })
+      body: JSON.stringify({ prompt })
     });
 
     const data = await resp.json();
-    const texto = data.content?.map(b => b.text || "").join("").trim();
+    if (data.error) throw new Error(data.error);
+    const texto = data.text.trim();
 
     container.innerHTML = `
       <div style="margin-top:20px">
