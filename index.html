@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VagasGP — Gestão Pública Brasília</title>
+  <meta name="description" content="Encontre vagas de Gestão Pública em Brasília/DF com análise inteligente de currículo." />
+  <meta name="theme-color" content="#0a1628" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #05101f;
+      --surface: #0d1f35;
+      --surface2: #132844;
+      --border: rgba(100,180,255,0.12);
+      --accent: #3b82f6;
+      --accent2: #06b6d4;
+      --gold: #f59e0b;
+      --text: #e8f0fe;
+      --muted: #7a9cc4;
+      --danger: #ef4444;
+      --success: #10b981;
+      --radius: 14px;
+      --font: 'Sora', sans-serif;
+      --mono: 'DM Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* BG mesh */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 10% 0%, rgba(59,130,246,0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 90% 80%, rgba(6,182,212,0.08) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .app { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 0 16px 80px; }
+
+    /* HEADER */
+    header {
+      padding: 32px 0 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .logo-icon {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+      box-shadow: 0 0 24px rgba(59,130,246,0.35);
+    }
+    .logo-text h1 { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.5px; }
+    .logo-text span { font-size: 0.75rem; color: var(--muted); font-weight: 400; }
+
+    /* TABS */
+    .tabs {
+      display: flex;
+      gap: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 5px;
+      margin-bottom: 24px;
+    }
+    .tab {
+      flex: 1; padding: 10px 8px;
+      border-radius: 10px;
+      border: none; background: transparent;
+      color: var(--muted); font-family: var(--font);
+      font-size: 0.8rem; font-weight: 600;
+      cursor: pointer; transition: all .2s;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .tab.active {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(59,130,246,0.3);
+    }
+    .tab:hover:not(.active) { color: var(--text); background: var(--surface2); }
+
+    /* CARDS */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 14px;
+    }
+
+    /* INPUTS */
+    input, select, textarea {
+      width: 100%; padding: 12px 16px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text); font-family: var(--font); font-size: 0.9rem;
+      outline: none; transition: border .2s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 130px; line-height: 1.6; }
+    select option { background: var(--surface2); }
+
+    label { font-size: 0.8rem; color: var(--muted); font-weight: 600; display: block; margin-bottom: 7px; }
+    .field { margin-bottom: 16px; }
+
+    /* BUTTONS */
+    .btn {
+      padding: 13px 24px;
+      border-radius: 10px; border: none;
+      font-family: var(--font); font-size: 0.9rem; font-weight: 700;
+      cursor: pointer; transition: all .2s;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(59,130,246,0.3);
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(59,130,246,0.45); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-gold {
+      background: linear-gradient(135deg, var(--gold), #ef4444);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(245,158,11,0.3);
+    }
+    .btn-gold:hover { transform: translateY(-1px); }
+    .btn-full { width: 100%; justify-content: center; }
+
+    /* LOADING */
+    .loading {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 16px; padding: 40px 0;
+    }
+    .spinner {
+      width: 42px; height: 42px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { color: var(--muted); font-size: 0.85rem; text-align: center; }
+
+    /* VAGA CARD */
+    .vaga-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-bottom: 12px;
+      transition: border-color .2s;
+      animation: fadeUp .3s ease both;
+    }
+    .vaga-card:hover { border-color: rgba(59,130,246,0.4); }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .vaga-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+    .vaga-cargo { font-size: 1rem; font-weight: 700; }
+    .vaga-empresa { font-size: 0.8rem; color: var(--muted); margin-top: 3px; }
+    .badge {
+      padding: 4px 10px; border-radius: 20px;
+      font-size: 0.68rem; font-weight: 700;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .badge-concurso { background: rgba(245,158,11,0.15); color: var(--gold); border: 1px solid rgba(245,158,11,0.3); }
+    .badge-clt { background: rgba(59,130,246,0.15); color: var(--accent); border: 1px solid rgba(59,130,246,0.3); }
+    .badge-pj { background: rgba(16,185,129,0.15); color: var(--success); border: 1px solid rgba(16,185,129,0.3); }
+    .badge-estagio { background: rgba(139,92,246,0.15); color: #a78bfa; border: 1px solid rgba(139,92,246,0.3); }
+    .badge-voluntario { background: rgba(244,63,94,0.12); color: #fb7185; border: 1px solid rgba(244,63,94,0.25); }
+    .vaga-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .tag {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px 8px;
+      font-size: 0.72rem; color: var(--muted); font-family: var(--mono);
+    }
+    .vaga-desc { font-size: 0.83rem; color: var(--muted); line-height: 1.6; margin-bottom: 14px; }
+    .vaga-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .match-bar { margin-bottom: 12px; }
+    .match-label { font-size: 0.72rem; color: var(--muted); margin-bottom: 5px; display: flex; justify-content: space-between; }
+    .match-track { height: 5px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .match-fill {
+      height: 100%; border-radius: 99px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transition: width 1s ease;
+    }
+
+    /* RESULTADO ANÁLISE */
+    .resultado-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      font-size: 0.87rem;
+      line-height: 1.75;
+      white-space: pre-wrap;
+      color: var(--text);
+    }
+
+    /* EMPTY / ERROR */
+    .empty { text-align: center; padding: 50px 20px; color: var(--muted); }
+    .empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .error-box {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 0.85rem;
+      color: #fca5a5;
+      margin-bottom: 16px;
+    }
+
+    /* SECTION HEAD */
+    .section-head {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 16px;
+    }
+    .section-head h2 { font-size: 1rem; font-weight: 700; }
+    .count-badge {
+      background: rgba(59,130,246,0.15);
+      color: var(--accent); border: 1px solid rgba(59,130,246,0.3);
+      border-radius: 20px; padding: 3px 10px; font-size: 0.75rem; font-weight: 700;
+    }
+
+    /* PÁGINAS */
+    .page { display: none; }
+    .page.active { display: block; animation: fadeIn .25s ease; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    /* FOOTER HINT */
+    .hint {
+      font-size: 0.75rem; color: var(--muted);
+      text-align: center; margin-top: 12px;
+      line-height: 1.5;
+    }
+
+    /* PROGRESS STEPS */
+    .steps {
+      display: flex; gap: 8px; margin-bottom: 20px;
+    }
+    .step {
+      flex: 1; height: 4px; border-radius: 99px;
+      background: var(--border); transition: background .4s;
+    }
+    .step.done { background: var(--accent); }
+
+    /* SCROLL TOP */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    @media (max-width: 480px) {
+      .vaga-actions { flex-direction: column; }
+      .btn { font-size: 0.82rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo-icon">🏛️</div>
+    <div class="logo-text">
+      <h1>VagasGP</h1>
+      <span>Gestão Pública · Brasília/DF</span>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('buscar')">🔍 Buscar Vagas</button>
+    <button class="tab" onclick="showTab('curriculo')">📄 Meu Currículo</button>
+    <button class="tab" onclick="showTab('analisar')">✨ Analisar Match</button>
+  </div>
+
+  <!-- TAB: BUSCAR -->
+  <div id="tab-buscar" class="page active">
+    <div class="card">
+      <div class="card-title">Filtros de Busca</div>
+      <div class="field">
+        <label>Tipo de vaga</label>
+        <select id="tipo-vaga">
+          <option value="todas">Todas as modalidades</option>
+          <option value="concurso">Concurso Público</option>
+          <option value="clt">CLT / Emprego Formal</option>
+          <option value="pj">PJ / Consultoria</option>
+          <option value="estagio">Estágio</option>
+          <option value="ong">ONG / Terceiro Setor</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Área específica</label>
+        <select id="area-especifica">
+          <option value="geral">Gestão Pública (geral)</option>
+          <option value="politicas">Políticas Públicas</option>
+          <option value="orcamento">Orçamento e Finanças Públicas</option>
+          <option value="gestao-pessoas">Gestão de Pessoas / RH Público</option>
+          <option value="controle">Controle e Auditoria</option>
+          <option value="licitacoes">Licitações e Contratos</option>
+          <option value="transparencia">Transparência e Dados</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Palavras-chave adicionais (opcional)</label>
+        <input type="text" id="keywords" placeholder="Ex: coordenador, analista, nível médio..." />
+      </div>
+      <button class="btn btn-primary btn-full" id="btn-buscar" onclick="buscarVagas()">
+        <span>🔍</span> Buscar Vagas Agora
+      </button>
+    </div>
+
+    <div id="resultado-busca"></div>
+  </div>
+
+  <!-- TAB: CURRÍCULO -->
+  <div id="tab-curriculo" class="page">
+    <div class="card">
+      <div class="card-title">Cole o Currículo Aqui</div>
+      <div class="field">
+        <label>Nome completo</label>
+        <input type="text" id="nome-candidata" placeholder="Nome da candidata" />
+      </div>
+      <div class="field">
+        <label>Texto do currículo (pode colar do Word ou PDF)</label>
+        <textarea id="curriculo-texto" placeholder="Cole aqui a formação, experiências, habilidades, cursos...&#10;&#10;Exemplo:&#10;Formação: Gestão Pública — UnB (cursando)&#10;Experiência: Estágio na Secretaria de Educação (2023-2024)&#10;Habilidades: Excel, BrOffice, Lei de Licitações..."></textarea>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="salvarCurriculo()">
+        💾 Salvar Currículo
+      </button>
+    </div>
+    <div id="curriculo-salvo" style="display:none">
+      <div class="card" style="border-color: rgba(16,185,129,0.3)">
+        <div class="card-title" style="color: var(--success)">✅ Currículo Salvo</div>
+        <p style="font-size:0.85rem; color:var(--muted); line-height:1.6" id="curriculo-preview"></p>
+        <div style="margin-top:14px">
+          <button class="btn btn-outline" onclick="editarCurriculo()">✏️ Editar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: ANALISAR -->
+  <div id="tab-analisar" class="page">
+    <div id="analisar-content">
+      <div class="card">
+        <div class="card-title">Análise Inteligente de Match</div>
+        <p style="font-size:0.85rem; color:var(--muted); line-height:1.6; margin-bottom:18px">
+          A IA vai cruzar o currículo salvo com as vagas encontradas e mostrar quais têm maior compatibilidade, o que falta e como melhorar as chances.
+        </p>
+        <div id="pre-analisar-check"></div>
+        <button class="btn btn-gold btn-full" id="btn-analisar" onclick="analisarMatch()">
+          ✨ Analisar Compatibilidade com IA
+        </button>
+      </div>
+      <div id="resultado-analise"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ANTHROPIC_KEY = ""; // Deixe vazio — o app usa o proxy do servidor
+
+let vagasEncontradas = [];
+let curriculoSalvo = "";
+let nomeSalvo = "";
+
+// ---- TABS ----
+function showTab(tab) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  event.target.classList.add('active');
+  if (tab === 'analisar') verificarPreAnalisar();
+}
+
+// ---- SALVAR CURRÍCULO ----
+function salvarCurriculo() {
+  const nome = document.getElementById('nome-candidata').value.trim();
+  const texto = document.getElementById('curriculo-texto').value.trim();
+  if (!texto || texto.length < 30) {
+    alert('Por favor, cole um currículo mais completo (mínimo 30 caracteres).');
+    return;
+  }
+  curriculoSalvo = texto;
+  nomeSalvo = nome || "Candidata";
+  localStorage.setItem('vagasgp_curriculo', texto);
+  localStorage.setItem('vagasgp_nome', nomeSalvo);
+
+  document.getElementById('curriculo-preview').textContent = texto.substring(0, 200) + (texto.length > 200 ? '...' : '');
+  document.getElementById('curriculo-salvo').style.display = 'block';
+  document.querySelector('#tab-curriculo .card').style.display = 'none';
+}
+
+function editarCurriculo() {
+  document.getElementById('curriculo-salvo').style.display = 'none';
+  document.querySelector('#tab-curriculo .card').style.display = 'block';
+}
+
+// ---- VERIFICAR PRÉ-ANÁLISE ----
+function verificarPreAnalisar() {
+  const el = document.getElementById('pre-analisar-check');
+  const btnA = document.getElementById('btn-analisar');
+  let msgs = [];
+  if (!curriculoSalvo) msgs.push('⚠️ Currículo não salvo — vá na aba "Meu Currículo"');
+  if (vagasEncontradas.length === 0) msgs.push('⚠️ Nenhuma vaga buscada ainda — vá na aba "Buscar Vagas"');
+  if (msgs.length > 0) {
+    el.innerHTML = '<div class="error-box">' + msgs.join('<br>') + '</div>';
+    btnA.disabled = true;
+  } else {
+    el.innerHTML = '<div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:10px;padding:12px 16px;font-size:0.83rem;color:#6ee7b7;margin-bottom:16px">✅ ' + vagasEncontradas.length + ' vagas carregadas · Currículo de ' + nomeSalvo + ' pronto</div>';
+    btnA.disabled = false;
+  }
+}
+
+// ---- BUSCAR VAGAS ----
+async function buscarVagas() {
+  const tipo = document.getElementById('tipo-vaga').value;
+  const area = document.getElementById('area-especifica').value;
+  const kw = document.getElementById('keywords').value.trim();
+  const btn = document.getElementById('btn-buscar');
+  const container = document.getElementById('resultado-busca');
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;border-width:2px"></span> Buscando...';
+
+  container.innerHTML = `<div class="loading">
+    <div class="spinner"></div>
+    <div class="loading-text">Pesquisando vagas de Gestão Pública em Brasília/DF...<br><small>Isso pode levar alguns segundos</small></div>
+  </div>`;
+
+  const prompt = `Você é um assistente especializado em mercado de trabalho para Gestão Pública no Brasil.
+Gere uma lista realista de ${tipo === 'concurso' ? '6 concursos públicos abertos ou previstos' : '6 vagas de emprego'} para a área de ${area} em Brasília/DF${kw ? ', relacionadas a: ' + kw : ''}.
+Tipo de vaga: ${tipo === 'todas' ? 'misturado (concurso, CLT, PJ, ONG)' : tipo}.
+
+Responda APENAS com um JSON válido, sem markdown, sem explicação, neste formato exato:
+{
+  "vagas": [
+    {
+      "cargo": "Nome do cargo",
+      "empresa": "Nome do órgão ou empresa",
+      "tipo": "concurso|clt|pj|estagio|voluntario",
+      "local": "Brasília/DF",
+      "salario": "Faixa salarial ou remuneração",
+      "requisitos": ["Requisito 1", "Requisito 2", "Requisito 3"],
+      "descricao": "Breve descrição das atividades (2 frases)",
+      "prazo": "Data prevista ou 'Aberto'"
+    }
+  ]
+}`;
+
+  try {
+    const resp = await fetch("/.netlify/functions/api", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1800,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    const data = await resp.json();
+    const raw = data.content?.map(b => b.text || "").join("").trim();
+    const json = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    vagasEncontradas = json.vagas || [];
+    renderVagas(vagasEncontradas);
+  } catch (e) {
+    container.innerHTML = `<div class="error-box">❌ Erro ao buscar vagas. Verifique sua conexão e tente novamente.<br><small>${e.message}</small></div>`;
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<span>🔍</span> Buscar Vagas Agora';
+}
+
+function badgeClass(tipo) {
+  const m = { concurso: 'badge-concurso', clt: 'badge-clt', pj: 'badge-pj', estagio: 'badge-estagio', voluntario: 'badge-voluntario' };
+  return m[tipo] || 'badge-clt';
+}
+function badgeLabel(tipo) {
+  const m = { concurso: '🏛️ Concurso', clt: '💼 CLT', pj: '📋 PJ', estagio: '🎓 Estágio', voluntario: '💚 Voluntário' };
+  return m[tipo] || tipo;
+}
+
+function renderVagas(vagas) {
+  const container = document.getElementById('resultado-busca');
+  if (!vagas.length) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><p>Nenhuma vaga encontrada. Tente outros filtros.</p></div>';
+    return;
+  }
+  container.innerHTML = `
+    <div class="section-head">
+      <h2>Vagas Encontradas</h2>
+      <span class="count-badge">${vagas.length} vagas</span>
+    </div>
+    ${vagas.map((v, i) => `
+      <div class="vaga-card" style="animation-delay:${i*0.07}s">
+        <div class="vaga-header">
+          <div>
+            <div class="vaga-cargo">${v.cargo}</div>
+            <div class="vaga-empresa">${v.empresa} · ${v.local}</div>
+          </div>
+          <span class="badge ${badgeClass(v.tipo)}">${badgeLabel(v.tipo)}</span>
+        </div>
+        <div class="vaga-tags">
+          ${(v.requisitos || []).map(r => `<span class="tag">${r}</span>`).join('')}
+          <span class="tag">💰 ${v.salario}</span>
+          <span class="tag">📅 ${v.prazo}</span>
+        </div>
+        <div class="vaga-desc">${v.descricao}</div>
+        <div class="vaga-actions">
+          <button class="btn btn-outline" onclick="copiarVaga(${i})">📋 Copiar</button>
+          <button class="btn btn-outline" onclick="compartilharVaga(${i})">📤 Compartilhar</button>
+        </div>
+      </div>
+    `).join('')}
+    <p class="hint">💡 Salve seu currículo e vá para "Analisar Match" para ver quais vagas combinam melhor com seu perfil.</p>
+  `;
+}
+
+function copiarVaga(i) {
+  const v = vagasEncontradas[i];
+  const txt = `${v.cargo} — ${v.empresa}\nTipo: ${v.tipo} | ${v.salario}\nRequisitos: ${v.requisitos.join(', ')}\n${v.descricao}`;
+  navigator.clipboard.writeText(txt).then(() => alert('Vaga copiada!'));
+}
+
+function compartilharVaga(i) {
+  const v = vagasEncontradas[i];
+  if (navigator.share) {
+    navigator.share({ title: v.cargo, text: `${v.cargo} em ${v.empresa} — ${v.salario}`, url: window.location.href });
+  } else {
+    copiarVaga(i);
+  }
+}
+
+// ---- ANALISAR MATCH ----
+async function analisarMatch() {
+  const btn = document.getElementById('btn-analisar');
+  const container = document.getElementById('resultado-analise');
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;border-width:2px"></span> Analisando...';
+
+  container.innerHTML = `<div class="loading">
+    <div class="spinner"></div>
+    <div class="loading-text">A IA está cruzando o currículo com as vagas...<br><small>Análise detalhada em andamento</small></div>
+  </div>`;
+
+  const vagasTexto = vagasEncontradas.map((v, i) =>
+    `Vaga ${i+1}: ${v.cargo} em ${v.empresa} (${v.tipo}) | Requisitos: ${v.requisitos.join(', ')} | ${v.salario}`
+  ).join('\n');
+
+  const prompt = `Você é um especialista em RH e seleção de talentos para o setor público brasileiro.
+
+CURRÍCULO DE ${nomeSalvo.toUpperCase()}:
+${curriculoSalvo}
+
+VAGAS DISPONÍVEIS:
+${vagasTexto}
+
+Analise a compatibilidade do currículo com cada vaga e forneça:
+
+1. 🏆 TOP 3 MELHORES VAGAS (com % de compatibilidade estimado e por quê)
+2. ✅ PONTOS FORTES do perfil para essas vagas
+3. ⚠️ LACUNAS E O QUE FAZER para aumentar as chances
+4. 💡 DICA EXTRA personalizada para ${nomeSalvo}
+
+Seja específico, prático e animador. Escreva em português, de forma clara e estruturada.`;
+
+  try {
+    const resp = await fetch("/.netlify/functions/api", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1200,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    const data = await resp.json();
+    const texto = data.content?.map(b => b.text || "").join("").trim();
+
+    container.innerHTML = `
+      <div style="margin-top:20px">
+        <div class="section-head"><h2>✨ Resultado da Análise</h2></div>
+        <div class="resultado-box">${texto}</div>
+        <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-outline" onclick="copiarAnalise()">📋 Copiar análise</button>
+          <button class="btn btn-outline" onclick="compartilharAnalise()">📤 Compartilhar</button>
+        </div>
+        <p class="hint" style="margin-top:12px">Análise gerada por IA — use como guia, não como decisão final.</p>
+      </div>
+    `;
+    window._ultimaAnalise = texto;
+  } catch (e) {
+    container.innerHTML = `<div class="error-box">❌ Erro na análise. Tente novamente.<br><small>${e.message}</small></div>`;
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '✨ Analisar Compatibilidade com IA';
+}
+
+function copiarAnalise() {
+  if (window._ultimaAnalise) navigator.clipboard.writeText(window._ultimaAnalise).then(() => alert('Análise copiada!'));
+}
+function compartilharAnalise() {
+  if (navigator.share && window._ultimaAnalise) {
+    navigator.share({ title: 'Análise de Vagas — VagasGP', text: window._ultimaAnalise });
+  } else copiarAnalise();
+}
+
+// ---- RESTORE LOCAL STORAGE ----
+window.onload = () => {
+  const c = localStorage.getItem('vagasgp_curriculo');
+  const n = localStorage.getItem('vagasgp_nome');
+  if (c) {
+    curriculoSalvo = c;
+    nomeSalvo = n || "Candidata";
+    document.getElementById('nome-candidata').value = nomeSalvo;
+    document.getElementById('curriculo-texto').value = c;
+    document.getElementById('curriculo-preview').textContent = c.substring(0, 200) + (c.length > 200 ? '...' : '');
+    document.getElementById('curriculo-salvo').style.display = 'block';
+    document.querySelector('#tab-curriculo .card').style.display = 'none';
+  }
+};
+</script>
+</body>
+</html>
