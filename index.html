@@ -513,69 +513,27 @@ async function buscarVagas() {
     <div class="loading-text">Pesquisando vagas de Gestão Pública em Brasília/DF...<br><small>Isso pode levar alguns segundos</small></div>
   </div>`;
 
-// Resumo curto do curriculo para nao estourar a cota da API
-  const perfilResumo = `Candidata: ${nomeSalvo}. Cursando Gestão Pública (UCB). Experiência: estagiária Polícia Federal (SEI, Excel, documentos oficiais), Social Media (marketing digital), Votorantim (projetos, fornecedores). Habilidades: Excel avançado, Word, SEI, AutoCAD, REVIT, inglês avançado, espanhol intermediário. Área: administração pública, gestão, apoio administrativo. Local: Brasília/DF.`;
-
-  const tipoFiltro = tipo !== 'todas' ? `Tipo de vaga: ${tipo}.` : '';
-  const areaFiltro = area !== 'geral' ? `Área: ${area}.` : '';
-  const kwFiltro = kw ? `Palavras-chave: ${kw}.` : '';
-
-const prompt = `Busque vagas de emprego REAIS e ATUAIS no Distrito Federal (Brasília/DF) ou Home Office.
-
-PERFIL: ${perfilResumo}
-${tipoFiltro} ${areaFiltro} ${kwFiltro}
-
-Retorne 8 vagas compatíveis com este perfil. Responda APENAS com JSON válido:
-{
-  "vagas": [
-    {
-      "cargo": "Nome do cargo",
-      "empresa": "Nome da empresa",
-      "tipo": "clt|pj|concurso|estagio",
-      "local": "Brasília/DF ou Remoto",
-      "salario": "Faixa ou Não divulgado",
-      "requisitos": ["requisito 1", "requisito 2"],
-      "descricao": "Resumo da vaga em 1-2 frases.",
-      "link": "https://url-real-da-vaga.com.br",
-      "prazo": "Data ou Aberto"
-    }
-  ]
-}`;
+  // Monta query de busca com os filtros selecionados
+  const tipoMap = { concurso: 'concurso publico', clt: 'emprego CLT', pj: 'vaga PJ', estagio: 'estagio', ong: 'ONG terceiro setor' };
+  const areaMap = { politicas: 'politicas publicas', orcamento: 'orcamento financas publicas', 'gestao-pessoas': 'gestao pessoas RH publico', controle: 'controle auditoria', licitacoes: 'licitacoes contratos', transparencia: 'transparencia dados' };
+  const tipoStr = tipo !== 'todas' ? (tipoMap[tipo] || tipo) : 'vaga emprego';
+  const areaStr = area !== 'geral' ? (areaMap[area] || area) : 'gestao publica administracao';
+  const query = `${tipoStr} ${areaStr} Brasilia DF ${kw}`.trim();
 
   try {
     const resp = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt })
+      body: JSON.stringify({ type: "buscar", query })
     });
 
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
-    const raw = data.text.trim();
 
-    // Extrai o bloco JSON mais externo da resposta (ignora markdown, citacoes, etc.)
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("A IA não retornou um JSON válido. Tente novamente.");
-    const json = JSON.parse(jsonMatch[0]);
-    vagasEncontradas = json.vagas || [];
-
-    // Se alguma vaga ficou sem link, tenta preencher com fontes do grounding
-    const sources = data.sources || [];
-    if (sources.length > 0) {
-      vagasEncontradas = vagasEncontradas.map((v, i) => {
-        if (!v.link && sources[i]) v.link = sources[i].uri;
-        return v;
-      });
-    }
-
-    renderVagas(vagasEncontradas, sources);
+    vagasEncontradas = data.vagas || [];
+    renderVagas(vagasEncontradas);
   } catch (e) {
-    const retryMatch = e.message.match(/retry in (\d+)/i);
-    const retryMsg = retryMatch ? `<br>⏳ Tente novamente em ${Math.ceil(retryMatch[1] / 60)} minuto(s).` : '';
-    const isQuota = e.message.includes("quota") || e.message.includes("exceeded");
-    const msg = isQuota
-      ? `⚠️ Limite da API Gemini atingido.${retryMsg}<br><small>Dica: aguarde alguns minutos e tente novamente.</small>`
-      : `❌ Erro ao buscar vagas. Verifique sua conexão e tente novamente.<br><small>${e.message}</small>`;
+    const msg = `❌ Erro ao buscar vagas. Verifique sua conexão e tente novamente.<br><small>${e.message}</small>`;
     container.innerHTML = `<div class="error-box">${msg}</div>`;
   }
 
@@ -701,7 +659,7 @@ Seja específico, prático e animador. Escreva em português, de forma clara e e
     const resp = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt })
+      body: JSON.stringify({ type: "analisar", prompt })
     });
 
     const data = await resp.json();
