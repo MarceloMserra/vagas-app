@@ -513,18 +513,11 @@ async function buscarVagas() {
     <div class="loading-text">Pesquisando vagas de Gestão Pública em Brasília/DF...<br><small>Isso pode levar alguns segundos</small></div>
   </div>`;
 
-  // Monta query de busca com os filtros selecionados
-  const tipoMap = { concurso: 'concurso publico', clt: 'emprego CLT', pj: 'vaga PJ', estagio: 'estagio', ong: 'ONG terceiro setor' };
-  const areaMap = { politicas: 'politicas publicas', orcamento: 'orcamento financas publicas', 'gestao-pessoas': 'gestao pessoas RH publico', controle: 'controle auditoria', licitacoes: 'licitacoes contratos', transparencia: 'transparencia dados' };
-  const tipoStr = tipo !== 'todas' ? (tipoMap[tipo] || tipo) : 'vaga emprego';
-  const areaStr = area !== 'geral' ? (areaMap[area] || area) : 'gestao publica administracao';
-  const query = `${tipoStr} ${areaStr} Brasilia DF ${kw}`.trim();
-
   try {
     const resp = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "buscar", query })
+      body: JSON.stringify({ type: "buscar", tipo, area, kw })
     });
 
     const data = await resp.json();
@@ -558,28 +551,18 @@ function makeLinksClickable(text) {
   });
 }
 
-function renderVagas(vagas, sources) {
+function renderVagas(vagas) {
   const container = document.getElementById('resultado-busca');
   if (!vagas.length) {
-    container.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><p>Nenhuma vaga encontrada. Tente outros filtros.</p></div>';
+    container.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><p>Nenhuma vaga encontrada. Tente outros filtros ou palavras-chave diferentes.</p></div>';
     return;
   }
-
-  const sourcesHtml = (sources && sources.length > 0) ? `
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-title">🔍 Fontes pesquisadas</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px">
-        ${sources.map(s => `<a href="${s.uri}" target="_blank" style="font-size:0.75rem;color:var(--accent);text-decoration:underline;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.title || s.uri}</a>`).join('')}
-      </div>
-    </div>
-  ` : '';
 
   container.innerHTML = `
     <div class="section-head">
       <h2>Vagas Encontradas</h2>
       <span class="count-badge">${vagas.length} vagas</span>
     </div>
-    ${sourcesHtml}
     ${vagas.map((v, i) => `
       <div class="vaga-card" style="animation-delay:${i*0.07}s">
         <div class="vaga-header">
@@ -634,26 +617,30 @@ async function analisarMatch() {
     <div class="loading-text">A IA está cruzando o currículo com as vagas...<br><small>Análise detalhada em andamento</small></div>
   </div>`;
 
+  // Monta lista resumida das vagas com link para a analise
   const vagasTexto = vagasEncontradas.map((v, i) =>
-    `Vaga ${i+1}: ${v.cargo} em ${v.empresa} (${v.tipo}) | Requisitos: ${v.requisitos.join(', ')} | ${v.salario}`
+    `${i+1}. ${v.cargo} | ${v.empresa} | ${v.tipo.toUpperCase()} | Link: ${v.link || 'nao disponivel'}\n   Descricao: ${v.descricao}`
   ).join('\n');
 
-  const prompt = `Você é um especialista em RH e seleção de talentos para o setor público brasileiro.
+  // Resumo do CV para nao exceder o contexto do modelo 8B
+  const cvResumo = curriculoSalvo.substring(0, 1200);
 
-CURRÍCULO DE ${nomeSalvo.toUpperCase()}:
-${curriculoSalvo}
+  const prompt = `Voce e um especialista em RH para o setor publico brasileiro. Responda em portugues, de forma direta e pratica.
 
-VAGAS DISPONÍVEIS:
+CURRICULO DE ${nomeSalvo.toUpperCase()} (resumo):
+${cvResumo}
+
+VAGAS ENCONTRADAS (${vagasEncontradas.length} vagas):
 ${vagasTexto}
 
-Analise a compatibilidade do currículo com cada vaga e forneça:
+Com base no curriculo acima, responda:
 
-1. 🏆 TOP 3 MELHORES VAGAS (com % de compatibilidade estimado e por quê)
-2. ✅ PONTOS FORTES do perfil para essas vagas
-3. ⚠️ LACUNAS E O QUE FAZER para aumentar as chances
-4. 💡 DICA EXTRA personalizada para ${nomeSalvo}
+1. TOP 5 VAGAS MAIS COMPATIVEIS - liste o numero da vaga, cargo, empresa e o motivo (2 linhas por vaga)
+2. PONTOS FORTES do perfil (3 bullets)
+3. O QUE FALTA para aumentar as chances (2 bullets)
+4. DICA RAPIDA para ${nomeSalvo}
 
-Seja específico, prático e animador. Escreva em português, de forma clara e estruturada.`;
+Seja breve e objetivo.`;
 
   try {
     const resp = await fetch(API_URL, {
