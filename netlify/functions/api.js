@@ -12,73 +12,92 @@ exports.handler = async (event) => {
   }
 };
 
-// ── BUSCAR: busca em paralelo em 6 plataformas via DuckDuckGo site: ──────────
+// ── BUSCAR ────────────────────────────────────────────────────────────────────
 
 async function buscarVagas({ tipo, area, kw }) {
-  const base = buildTerms(tipo, area, kw);
+  const extra = kw ? `"${kw}"` : "";
+  const tipoExtra = {
+    concurso: 'concurso edital inscricoes abertas',
+    clt:      'vaga emprego contratacao CLT',
+    pj:       'vaga PJ consultoria',
+    estagio:  'estagio oportunidade',
+    ong:      'ONG "terceiro setor"',
+  }[tipo] || 'vaga emprego oportunidade';
 
-  // Cada busca usa site: especifico para retornar vagas INDIVIDUAIS (nao paginas de busca)
+  const areaExtra = {
+    politicas:       '"politicas publicas"',
+    orcamento:       '"orcamento" OR "financas publicas"',
+    'gestao-pessoas':'"gestao de pessoas" OR "RH publico"',
+    controle:        '"controle interno" OR "auditoria"',
+    licitacoes:      '"licitacao" OR "contratos administrativos"',
+    transparencia:   '"transparencia" OR "dados abertos"',
+  }[area] || '"gestao publica" OR "administracao publica" OR "apoio administrativo"';
+
+  // 10 queries paralelas — cada uma com angulo diferente para maximizar resultados
   const queries = [
-    `site:catho.com.br/vagas ${base} brasilia`,
-    `site:vagas.com.br/vagas ${base} brasilia`,
-    `site:infojobs.com.br ${base} brasilia`,
-    `site:gupy.io ${base} brasilia`,
-    `site:br.indeed.com/ver-vaga ${base} brasilia`,
-    `site:bne.com.br/vaga ${base} brasilia`,
-    `site:empregos.com.br ${base} brasilia`,
-    `${base} vaga emprego brasilia DF 2025 -site:amazon -site:estacio`,
+    // Vagas de estagio (perfil cursando)
+    `estagio ${areaExtra} "Brasilia" OR "DF" OR "Distrito Federal" 2025 ${extra} -curso -graduacao -pos-graduacao`,
+    // Assistente/analista em orgaos publicos
+    `"assistente administrativo" OR "analista administrativo" ${areaExtra} Brasilia DF emprego 2025 ${extra}`,
+    // Apoio a gestao em governo/secretarias
+    `"apoio administrativo" OR "assistente de gestao" governo brasilia DF vaga 2025 ${extra}`,
+    // Orgaos federais (compativel com exp Policia Federal)
+    `vaga ${tipoExtra} "orgao federal" OR "governo federal" OR "secretaria" brasilia 2025 ${extra}`,
+    // SEI — habilidade especifica da candidata
+    `vaga emprego "SEI" "sistema eletronico" administracao brasilia DF 2025 ${extra}`,
+    // Concursos na area
+    `concurso publico ${areaExtra} Brasilia DF edital 2025 ${extra} -curso -graduacao`,
+    // Catho — plataforma brasileira popular
+    `site:catho.com.br ${areaExtra} brasilia ${tipoExtra} ${extra}`,
+    // Vagas.com
+    `site:vagas.com.br ${areaExtra} brasilia ${extra}`,
+    // Gupy — usado por orgaos e empresas
+    `site:gupy.io ${areaExtra} brasilia ${extra}`,
+    // InfoJobs
+    `site:infojobs.com.br ${areaExtra} brasilia ${extra}`,
   ];
 
-  // Busca todas em paralelo (DuckDuckGo aguenta bem)
-  const results = await Promise.allSettled(queries.map(q => searchDDG(q)));
-
-  // Junta todos os resultados
-  const all = results
+  const settled = await Promise.allSettled(queries.map(q => searchDDG(q)));
+  const all = settled
     .filter(r => r.status === "fulfilled")
     .flatMap(r => r.value);
 
-  // Deduplica por URL
+  // Deduplica por URL e remove cursos
   const seen = new Set();
-  const unique = all.filter(v => {
-    if (!v.link || seen.has(v.link)) return false;
+  const vagas = all.filter(v => {
+    if (!v.link || !v.cargo) return false;
+    if (seen.has(v.link)) return false;
     seen.add(v.link);
-    return true;
+    return isJobPosting(v.link, v.cargo);
   });
 
   return {
     statusCode: 200,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ vagas: unique.slice(0, 30) }),
+    body: JSON.stringify({ vagas: vagas.slice(0, 35) }),
   };
 }
 
-function buildTerms(tipo, area, kw) {
-  const tipoMap = {
-    concurso: "concurso publico edital",
-    clt: "emprego CLT contratacao",
-    pj: "vaga PJ consultoria",
-    estagio: "estagio trainee",
-    ong: "ONG terceiro setor",
-  };
-  const areaMap = {
-    politicas: "politicas publicas",
-    orcamento: "orcamento financas publicas",
-    "gestao-pessoas": "gestao pessoas RH publico",
-    controle: "controle auditoria",
-    licitacoes: "licitacoes contratos",
-    transparencia: "transparencia dados abertos",
-  };
-  const parts = [];
-  if (tipo && tipo !== "todas") parts.push(tipoMap[tipo] || tipo);
-  parts.push(areaMap[area] || "gestao publica administracao");
-  if (kw) parts.push(kw);
-  return parts.join(" ");
+// ── Verifica se o resultado e uma vaga de emprego (nao curso/faculdade) ───────
+function isJobPosting(url, title) {
+  const lower = (url + " " + title).toLowerCase();
+  const courseTerms = [
+    "pos-graduacao", "pos_graduacao", "posgraduacao",
+    "graduacao", "/curso", "curso-de", "formacao",
+    "matricula", "ifb.edu", "unb.br", ".edu.br",
+    "faculdade", "universidade", "inscricao-curso",
+    "especializacao", "mba", "certificacao-em",
+    "vagas-para-pos", "vagas para pos", "45 vagas para",
+    "bolsa de estudos",
+  ];
+  return !courseTerms.some(t => lower.includes(t));
 }
 
+// ── Busca no DuckDuckGo HTML ──────────────────────────────────────────────────
 async function searchDDG(query) {
   const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}&kl=br-pt`;
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 6000);
+  const timer = setTimeout(() => ctrl.abort(), 7000);
   try {
     const resp = await fetch(url, {
       signal: ctrl.signal,
@@ -89,8 +108,7 @@ async function searchDDG(query) {
       },
     });
     if (!resp.ok) return [];
-    const html = await resp.text();
-    return parseDDG(html);
+    return parseDDG(await resp.text());
   } catch (e) {
     return [];
   } finally {
@@ -99,34 +117,33 @@ async function searchDDG(query) {
 }
 
 function parseDDG(html) {
-  // Extrai URLs reais do parametro uddg (URLs codificadas nos links do DDG)
-  const urlMatches   = [...html.matchAll(/uddg=(https?[^&"]+)/g)];
-  const titleMatches = [...html.matchAll(/class="result__a"[^>]*>([\s\S]*?)<\/a>/g)];
-  const snipMatches  = [...html.matchAll(/class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g)];
+  const urls  = [...html.matchAll(/uddg=(https?[^&"]+)/g)]
+    .map(m => { try { return decodeURIComponent(m[1]); } catch { return m[1]; } });
+  const titles = [...html.matchAll(/class="result__a"[^>]*>([\s\S]*?)<\/a>/g)]
+    .map(m => m[1].replace(/<[^>]+>/g, "").trim());
+  const snips  = [...html.matchAll(/class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g)]
+    .map(m => m[1].replace(/<[^>]+>/g, "").trim());
 
-  const urls     = urlMatches.map(m => { try { return decodeURIComponent(m[1]); } catch { return m[1]; } });
-  const titles   = titleMatches.map(m => m[1].replace(/<[^>]+>/g, "").trim());
-  const snippets = snipMatches.map(m => m[1].replace(/<[^>]+>/g, "").trim());
-
-  const skip = ["amazon.", "estacio.", "doubleclick.", "bing.com/aclick", "google.com/aclk"];
+  // Dominios de anuncios a ignorar
+  const adSkip = ["amazon.", "estacio.", "doubleclick.", "/aclick", "kroton.", "anhanguera."];
   const vagas = [];
 
-  for (let i = 0; i < Math.min(urls.length, titles.length, 12); i++) {
-    const link  = urls[i] || "";
+  for (let i = 0; i < Math.min(urls.length, titles.length, 15); i++) {
+    const link  = urls[i]   || "";
     const cargo = titles[i] || "";
-    const desc  = snippets[i] || "";
+    const desc  = snips[i]  || "";
 
-    if (!link || !cargo || cargo.length < 5) continue;
-    if (skip.some(s => link.includes(s))) continue;
+    if (!link || cargo.length < 5) continue;
+    if (adSkip.some(s => link.includes(s))) continue;
 
     vagas.push({
       cargo,
       empresa: detectSource(link),
-      tipo: detectTipo(cargo + " " + desc),
-      local: "Brasilia/DF",
+      tipo:    detectTipo(cargo + " " + desc),
+      local:   "Brasilia/DF",
       salario: "Ver no site",
-      requisitos: extractRequisitos(desc),
-      descricao: desc || "Clique em Acessar Vaga para ver os detalhes.",
+      requisitos: extractReqs(desc),
+      descricao: desc || "Clique em Acessar Vaga para ver os detalhes e se candidatar.",
       link,
       prazo: "Aberto",
     });
@@ -154,23 +171,20 @@ function detectTipo(text) {
   return "clt";
 }
 
-function extractRequisitos(text) {
-  // Tenta extrair palavras-chave tecnicas do snippet como requisitos
-  const keywords = ["excel", "word", "sei", "pacote office", "licitacao", "gestao", "administracao",
-    "contabilidade", "orcamento", "auditoria", "ingles", "espanhol", "ensino superior",
-    "nivel medio", "nivel superior", "experiencia", "cnh"];
-  const found = keywords.filter(k => text.toLowerCase().includes(k));
-  return found.slice(0, 4);
+function extractReqs(text) {
+  const kws = ["excel", "word", "sei", "pacote office", "licitacao", "gestao",
+    "administracao", "contabilidade", "orcamento", "auditoria", "ingles",
+    "espanhol", "ensino superior", "nivel medio", "cnh", "experiencia"];
+  return kws.filter(k => text.toLowerCase().includes(k)).slice(0, 4);
 }
 
-// ── ANALISAR: Ollama compara CV com vagas e aponta compatibilidade ────────────
+// ── ANALISAR: Ollama compara CV com vagas ─────────────────────────────────────
 
 async function analisarMatch({ prompt }) {
   if (!prompt) return { statusCode: 400, body: JSON.stringify({ error: "Prompt obrigatorio." }) };
 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 25000);
-
   try {
     const resp = await fetch("https://ollama.cpisf.com.br/api/generate", {
       method: "POST",
@@ -183,12 +197,10 @@ async function analisarMatch({ prompt }) {
         options: { temperature: 0.3, num_predict: 500 },
       }),
     });
-
     if (!resp.ok) throw new Error(`Ollama retornou ${resp.status}`);
     const data = await resp.json();
     const text = data.response || "";
     if (!text) throw new Error("Ollama retornou resposta vazia");
-
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
@@ -196,7 +208,7 @@ async function analisarMatch({ prompt }) {
     };
   } catch (err) {
     if (err.name === "AbortError") {
-      throw new Error("Analise demorou mais que o esperado. Tente novamente — o modelo pode estar carregando.");
+      throw new Error("A analise demorou mais que o esperado. Tente novamente — o modelo pode estar carregando.");
     }
     throw err;
   } finally {
