@@ -117,36 +117,48 @@ async function searchDDG(query) {
 }
 
 function parseDDG(html) {
-  const urls  = [...html.matchAll(/uddg=(https?[^&"]+)/g)]
-    .map(m => { try { return decodeURIComponent(m[1]); } catch { return m[1]; } });
-  const titles = [...html.matchAll(/class="result__a"[^>]*>([\s\S]*?)<\/a>/g)]
-    .map(m => m[1].replace(/<[^>]+>/g, "").trim());
-  const snips  = [...html.matchAll(/class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g)]
-    .map(m => m[1].replace(/<[^>]+>/g, "").trim());
-
-  // Dominios de anuncios a ignorar
-  const adSkip = ["amazon.", "estacio.", "doubleclick.", "/aclick", "kroton.", "anhanguera."];
   const vagas = [];
 
-  for (let i = 0; i < Math.min(urls.length, titles.length, 15); i++) {
-    const link  = urls[i]   || "";
-    const cargo = titles[i] || "";
-    const desc  = snips[i]  || "";
+  // Divide em blocos por resultado — cada bloco contem titulo, URL e snippet juntos
+  // Isso evita dessincronizacao entre arrays separados e elimina ads automaticamente
+  const blocks = html.split('class="result results_links');
 
-    if (!link || cargo.length < 5) continue;
-    if (adSkip.some(s => link.includes(s))) continue;
+  for (const block of blocks) {
+    if (!block.includes("web-result")) continue; // pula ads (nao tem web-result)
+
+    // URL: extrai do parametro uddg do href do result__a
+    const hrefM = block.match(/class="result__a"[^>]*href="([^"]+)"/);
+    if (!hrefM) continue;
+    const uddgM = hrefM[1].match(/uddg=([^&"]+)/);
+    if (!uddgM) continue;
+
+    let url;
+    try { url = decodeURIComponent(decodeURIComponent(uddgM[1])); }
+    catch { try { url = decodeURIComponent(uddgM[1]); } catch { url = uddgM[1]; } }
+
+    if (!url || url.includes("duckduckgo.com")) continue;
+
+    // Titulo e snippet do mesmo bloco
+    const titleM = block.match(/class="result__a"[^>]*>([\s\S]*?)<\/a>/);
+    const cargo  = titleM ? titleM[1].replace(/<[^>]+>/g, "").trim() : "";
+    if (!cargo || cargo.length < 5) continue;
+
+    const snipM = block.match(/class="result__snippet"[^>]*>([\s\S]*?)<\/a>/);
+    const desc  = snipM ? snipM[1].replace(/<[^>]+>/g, "").trim() : "";
 
     vagas.push({
       cargo,
-      empresa: detectSource(link),
+      empresa: detectSource(url),
       tipo:    detectTipo(cargo + " " + desc),
       local:   "Brasilia/DF",
       salario: "Ver no site",
       requisitos: extractReqs(desc),
       descricao: desc || "Clique em Acessar Vaga para ver os detalhes e se candidatar.",
-      link,
+      link:  url,
       prazo: "Aberto",
     });
+
+    if (vagas.length >= 15) break;
   }
   return vagas;
 }
