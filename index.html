@@ -549,7 +549,11 @@ Responda APENAS com um JSON válido correspondente, neste formato exato:
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
     const raw = data.text.trim();
-    const json = JSON.parse(raw.replace(/```json|```/g, '').replace(/```/g, '').trim());
+
+    // Extrai o bloco JSON mais externo da resposta (ignora markdown, citacoes, etc.)
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("A IA não retornou um JSON válido. Tente novamente.");
+    const json = JSON.parse(jsonMatch[0]);
     vagasEncontradas = json.vagas || [];
 
     // Se alguma vaga ficou sem link, tenta preencher com fontes do grounding

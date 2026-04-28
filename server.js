@@ -56,11 +56,14 @@ app.post('/api/chat', async (req, res) => {
         throw new Error(data.error?.message || "Erro interno na API do Gemini");
     }
 
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    const text = parts.map(p => p.text || '').join('');
 
     if (!text) {
+        console.error("Resposta sem texto. Candidates:", JSON.stringify(data.candidates, null, 2));
         throw new Error("A API retornou um formato inesperado sem texto");
     }
+    console.log("Texto recebido (primeiros 500 chars):", text.substring(0, 500));
 
     // Extrai URLs das fontes usadas pelo Google Search (groundingMetadata)
     const sources = (data.candidates?.[0]?.groundingMetadata?.groundingChunks || [])
