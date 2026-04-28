@@ -57,13 +57,18 @@ app.post('/api/chat', async (req, res) => {
     }
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    
+
     if (!text) {
         throw new Error("A API retornou um formato inesperado sem texto");
     }
 
-    console.log("Requisicao concluida com sucesso!");
-    res.json({ text });
+    // Extrai URLs das fontes usadas pelo Google Search (groundingMetadata)
+    const sources = (data.candidates?.[0]?.groundingMetadata?.groundingChunks || [])
+        .map(c => c.web)
+        .filter(Boolean);
+
+    console.log("Requisicao concluida com sucesso! Sources:", sources.length);
+    res.json({ text, sources });
   } catch (error) {
     console.error("Erro na rota /api/chat:", error);
     res.status(500).json({ error: error.message });
