@@ -513,29 +513,31 @@ async function buscarVagas() {
     <div class="loading-text">Pesquisando vagas de Gestão Pública em Brasília/DF...<br><small>Isso pode levar alguns segundos</small></div>
   </div>`;
 
-const prompt = `Você é um headhunter corporativo e especialista em RH. Você TEM acesso à internet e deve buscar vagas REAIS, ATUAIS E VERDADEIRAS disponíveis hoje.
+// Resumo curto do curriculo para nao estourar a cota da API
+  const perfilResumo = `Candidata: ${nomeSalvo}. Cursando Gestão Pública (UCB). Experiência: estagiária Polícia Federal (SEI, Excel, documentos oficiais), Social Media (marketing digital), Votorantim (projetos, fornecedores). Habilidades: Excel avançado, Word, SEI, AutoCAD, REVIT, inglês avançado, espanhol intermediário. Área: administração pública, gestão, apoio administrativo. Local: Brasília/DF.`;
 
-CURRÍCULO DO CANDIDATO:
-${curriculoSalvo}
+  const tipoFiltro = tipo !== 'todas' ? `Tipo de vaga: ${tipo}.` : '';
+  const areaFiltro = area !== 'geral' ? `Área: ${area}.` : '';
+  const kwFiltro = kw ? `Palavras-chave: ${kw}.` : '';
 
-Sua tarefa: Pesquise na internet *EXCLUSIVAMENTE* vagas de emprego reais (CLT, PJ, Concurso, etc) localizadas ESTRITAMENTE no Distrito Federal (Brasília/DF) ou que sejam 100% Home Office/Remotas. 
-CRÍTICO: Filtre SOMENTE vagas que correspondam com exatidão ao perfil acadêmico (cursando Gestão Pública, experiências administrativas, pacote Office avançado, etc). Vagas fora do escopo do currículo DEVEM ser descartadas.
+const prompt = `Busque vagas de emprego REAIS e ATUAIS no Distrito Federal (Brasília/DF) ou Home Office.
 
-Traga em torno de 15 a 20 vagas EXTREMAMENTE COMPATÍVEIS. Faça uma pesquisa real nos buscadores. NÃO INVENTE VAGAS, NÃO TRAGA VAGAS DE OUTROS ESTADOS, E NÃO TRAGA VAGAS FORA DO PERFIL.
+PERFIL: ${perfilResumo}
+${tipoFiltro} ${areaFiltro} ${kwFiltro}
 
-Responda APENAS com um JSON válido correspondente, neste formato exato:
+Retorne 8 vagas compatíveis com este perfil. Responda APENAS com JSON válido:
 {
   "vagas": [
     {
-      "cargo": "Nome do cargo real",
-      "empresa": "Nome da empresa verdadeira",
-      "tipo": "clt|pj|concurso",
-      "local": "Local da vaga / Remoto",
-      "salario": "Faixa salarial ou Não divulgado",
-      "requisitos": ["Requisito 1", "Requisito 2"],
-      "descricao": "Resumo real da vaga em 2-3 frases.",
-      "link": "URL COMPLETA E REAL da vaga (https://...) — OBRIGATÓRIO, não deixe vazio",
-      "prazo": "Data de inscrição ou Aberto"
+      "cargo": "Nome do cargo",
+      "empresa": "Nome da empresa",
+      "tipo": "clt|pj|concurso|estagio",
+      "local": "Brasília/DF ou Remoto",
+      "salario": "Faixa ou Não divulgado",
+      "requisitos": ["requisito 1", "requisito 2"],
+      "descricao": "Resumo da vaga em 1-2 frases.",
+      "link": "https://url-real-da-vaga.com.br",
+      "prazo": "Data ou Aberto"
     }
   ]
 }`;
@@ -568,7 +570,13 @@ Responda APENAS com um JSON válido correspondente, neste formato exato:
 
     renderVagas(vagasEncontradas, sources);
   } catch (e) {
-    container.innerHTML = `<div class="error-box">❌ Erro ao buscar vagas. Verifique sua conexão e tente novamente.<br><small>${e.message}</small></div>`;
+    const retryMatch = e.message.match(/retry in (\d+)/i);
+    const retryMsg = retryMatch ? `<br>⏳ Tente novamente em ${Math.ceil(retryMatch[1] / 60)} minuto(s).` : '';
+    const isQuota = e.message.includes("quota") || e.message.includes("exceeded");
+    const msg = isQuota
+      ? `⚠️ Limite da API Gemini atingido.${retryMsg}<br><small>Dica: aguarde alguns minutos e tente novamente.</small>`
+      : `❌ Erro ao buscar vagas. Verifique sua conexão e tente novamente.<br><small>${e.message}</small>`;
+    container.innerHTML = `<div class="error-box">${msg}</div>`;
   }
 
   btn.disabled = false;
