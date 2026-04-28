@@ -12,186 +12,130 @@ exports.handler = async (event) => {
   }
 };
 
-// ── BUSCAR ────────────────────────────────────────────────────────────────────
+// ── BUSCAR: scraping direto do Vagas.com.br ───────────────────────────────────
 
 async function buscarVagas({ tipo, area, kw }) {
-  const tipoTermo = {
-    concurso: "concurso publico edital",
-    clt:      "vaga emprego CLT",
-    pj:       "vaga PJ consultoria",
-    estagio:  "estagio",
-    ong:      "ONG voluntario",
-  }[tipo] || "vaga emprego estagio";
-
-  const areaTermo = {
-    politicas:        "politicas publicas",
-    orcamento:        "orcamento financas publicas",
-    "gestao-pessoas": "gestao pessoas RH",
-    controle:         "auditoria controle",
-    licitacoes:       "licitacao contratos",
-    transparencia:    "transparencia dados",
-  }[area] || "gestao publica administracao publica";
-
-  const kwTermo = kw || "";
-
-  // 3 queries focadas — rapidas e dentro do timeout do Netlify
-  const queries = [
-    `${tipoTermo} "${areaTermo}" "Brasilia" OR "Distrito Federal" 2025 ${kwTermo}`,
-    `estagio assistente analista administracao publica brasilia DF site:catho.com.br OR site:vagas.com.br OR site:gupy.io`,
-    `${areaTermo} brasilia DF vaga emprego 2025 ${kwTermo} site:linkedin.com OR site:indeed.com OR site:infojobs.com.br`,
-  ];
-
-  // Log para debug
-  console.log("Queries:", JSON.stringify(queries));
+  // Paths do vagas.com.br mapeados por tipo e area
+  // Cada path retorna vagas individuais com links reais
+  const paths = buildPaths(tipo, area, kw);
 
   const results = await Promise.allSettled(
-    queries.map(q => searchDDG(q))
+    paths.map(p => scrapeVagasCom(p))
   );
-
-  const debug = results.map((r, i) => ({
-    query: queries[i].substring(0, 60),
-    ok: r.status === "fulfilled",
-    count: r.status === "fulfilled" ? r.value.length : 0,
-    error: r.status === "rejected" ? r.reason?.message : undefined,
-  }));
-  console.log("Debug:", JSON.stringify(debug));
 
   const all = results
     .filter(r => r.status === "fulfilled")
     .flatMap(r => r.value);
 
+  // Deduplica por link
   const seen = new Set();
   const vagas = all.filter(v => {
-    if (!v.link || !v.cargo || seen.has(v.link)) return false;
+    if (!v.link || seen.has(v.link)) return false;
     seen.add(v.link);
-    return !isCurso(v.link, v.cargo);
+    return true;
   });
-
-  console.log("Total vagas antes dedup:", all.length, "Apos filtro:", vagas.length);
 
   return {
     statusCode: 200,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ vagas: vagas.slice(0, 30), debug }),
+    body: JSON.stringify({ vagas: vagas.slice(0, 40) }),
   };
 }
 
-function isCurso(url, title) {
-  const lower = url.toLowerCase();
-  const titleLow = title.toLowerCase();
-  // So bloqueia padroes muito especificos de cursos/faculdades nas URLs
-  const urlPatterns = [
-    "ifb.edu", "unb.br", ".edu.br", "/pos-graduacao", "/posgraduacao",
-    "/curso-de", "/graduacao/", "faculdade", "universidade",
-  ];
-  const titlePatterns = [
-    "pós-graduação", "pos-graduacao", "mba em ", "curso de ",
-    "formação em ", "bolsa de estudo",
-  ];
-  return urlPatterns.some(p => lower.includes(p)) ||
-         titlePatterns.some(p => titleLow.includes(p));
+function buildPaths(tipo, area, kw) {
+  // Paths base por area — sempre incluidos
+  const basePaths = {
+    geral:           ["/vagas-de-gestao-publica-em-brasilia", "/vagas-de-assistente-administrativo-em-brasilia", "/vagas-de-analista-administrativo-em-brasilia"],
+    politicas:       ["/vagas-de-gestao-publica-em-brasilia", "/vagas-de-analista-de-politicas-publicas-em-brasilia"],
+    orcamento:       ["/vagas-de-analista-de-orcamento-em-brasilia", "/vagas-de-financas-em-brasilia"],
+    "gestao-pessoas":["/vagas-de-recursos-humanos-em-brasilia", "/vagas-de-gestao-de-pessoas-em-brasilia"],
+    controle:        ["/vagas-de-auditoria-em-brasilia", "/vagas-de-controle-interno-em-brasilia"],
+    licitacoes:      ["/vagas-de-licitacao-em-brasilia", "/vagas-de-compras-em-brasilia"],
+    transparencia:   ["/vagas-de-analista-de-dados-em-brasilia", "/vagas-de-gestao-publica-em-brasilia"],
+  }[area] || ["/vagas-de-gestao-publica-em-brasilia", "/vagas-de-assistente-administrativo-em-brasilia", "/vagas-de-analista-administrativo-em-brasilia"];
+
+  // Adiciona paths por tipo
+  const tipoPaths = {
+    estagio:  ["/vagas-de-estagio-em-brasilia", "/vagas-de-estagio-em-administracao-em-brasilia"],
+    concurso: ["/vagas-de-concurso-publico-em-brasilia"],
+    clt:      ["/vagas-de-analista-administrativo-em-brasilia", "/vagas-de-assistente-administrativo-em-brasilia"],
+    pj:       ["/vagas-de-consultoria-em-brasilia"],
+    ong:      ["/vagas-de-ong-em-brasilia", "/vagas-de-terceiro-setor-em-brasilia"],
+    todas:    [],
+  }[tipo] || [];
+
+  // Se tem keyword, adiciona busca especifica
+  const kwPath = kw ? [`/vagas-de-${kw.toLowerCase().replace(/\s+/g, "-")}-em-brasilia`] : [];
+
+  return [...new Set([...basePaths, ...tipoPaths, ...kwPath])];
 }
 
-// ── DuckDuckGo HTML search ────────────────────────────────────────────────────
-
-async function searchDDG(query) {
-  const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}&kl=br-pt`;
+async function scrapeVagasCom(path) {
+  const url = "https://www.vagas.com.br" + path;
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 6000);
+  const timer = setTimeout(() => ctrl.abort(), 8000);
   try {
     const resp = await fetch(url, {
       signal: ctrl.signal,
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+        "Accept-Language": "pt-BR,pt;q=0.9",
       },
     });
-    if (!resp.ok) {
-      console.log("DDG status:", resp.status, "para query:", query.substring(0, 50));
-      return [];
-    }
+    if (!resp.ok) return [];
     const html = await resp.text();
-    console.log("DDG html size:", html.length, "web-result:", html.includes("web-result"));
-    return parseDDG(html);
+    return parseVagasCom(html);
   } catch (e) {
-    console.log("DDG erro:", e.message, "query:", query.substring(0, 50));
     return [];
   } finally {
     clearTimeout(timer);
   }
 }
 
-function parseDDG(html) {
+function parseVagasCom(html) {
   const vagas = [];
-  // Divide em blocos por resultado organico (web-result) — exclui ads automaticamente
-  const blocks = html.split('class="result results_links');
 
-  for (const block of blocks) {
-    if (!block.includes("web-result")) continue;
+  // Estrutura: <a class="link-detalhes-vaga" title="CARGO" href="/vagas/vID/slug">
+  //            <span class="emprVaga">EMPRESA</span>
+  //            <span class="localidade">LOCAL</span>
+  const pattern = /class="link-detalhes-vaga"[^>]*title="([^"]+)"[^>]*href="(\/vagas\/[^"]+)"[\s\S]*?<span class="emprVaga">\s*([^<]+)[\s\S]*?<span class="localidade">\s*([^<]*)/g;
 
-    const hrefM = block.match(/class="result__a"[^>]*href="([^"]+)"/);
-    if (!hrefM) continue;
-    const uddgM = hrefM[1].match(/uddg=([^&"]+)/);
-    if (!uddgM) continue;
+  let m;
+  while ((m = pattern.exec(html)) !== null) {
+    const cargo   = m[1].trim();
+    const link    = "https://www.vagas.com.br" + m[2];
+    const empresa = m[3].trim();
+    const local   = m[4].trim() || "Brasília/DF";
 
-    let url;
-    try { url = decodeURIComponent(decodeURIComponent(uddgM[1])); }
-    catch { try { url = decodeURIComponent(uddgM[1]); } catch { url = uddgM[1]; } }
-    if (!url || url.includes("duckduckgo.com")) continue;
+    if (!cargo || !link) continue;
 
-    const titleM = block.match(/class="result__a"[^>]*>([\s\S]*?)<\/a>/);
-    const cargo  = titleM ? titleM[1].replace(/<[^>]+>/g, "").trim() : "";
-    if (!cargo || cargo.length < 5) continue;
-
-    const snipM = block.match(/class="result__snippet"[^>]*>([\s\S]*?)<\/a>/);
-    const desc  = snipM ? snipM[1].replace(/<[^>]+>/g, "").trim() : "";
+    // Detecta tipo pelo cargo
+    const tipo = detectTipo(cargo);
 
     vagas.push({
       cargo,
-      empresa: detectSource(url),
-      tipo:    detectTipo(cargo + " " + desc),
-      local:   "Brasilia/DF",
+      empresa,
+      tipo,
+      local: local || "Brasília/DF",
       salario: "Ver no site",
-      requisitos: extractReqs(desc),
-      descricao: desc || "Clique em Acessar Vaga para ver os detalhes.",
-      link: url,
+      requisitos: [],
+      descricao: `Vaga em ${empresa}. Clique em "Acessar Vaga" para ver requisitos completos e se candidatar diretamente.`,
+      link,
       prazo: "Aberto",
     });
 
-    if (vagas.length >= 12) break;
+    if (vagas.length >= 15) break;
   }
   return vagas;
 }
 
-function detectSource(url) {
-  const map = {
-    linkedin: "LinkedIn", indeed: "Indeed", catho: "Catho",
-    "vagas.com": "Vagas.com", infojobs: "InfoJobs", glassdoor: "Glassdoor",
-    jooble: "Jooble", "bne.com": "BNE", careerjet: "CareerJet",
-    trampos: "Trampos", gupy: "Gupy", sine: "SINE",
-    empregos: "Empregos.com.br", "gov.br": "Gov.br",
-    ciee: "CIEE", talentin: "Talentin", talentbrand: "TalentBrand",
-    folhadeemprego: "Folha de Emprego", estagiosbrasiliadf: "Estágios Brasília",
-  };
-  for (const [k, v] of Object.entries(map)) if (url.includes(k)) return v;
-  try { return new URL(url).hostname.replace(/^www\.|^br\./, ""); }
-  catch { return "Site de vagas"; }
-}
-
-function detectTipo(text) {
-  const t = text.toLowerCase();
+function detectTipo(cargo) {
+  const t = cargo.toLowerCase();
+  if (t.includes("estagi") || t.includes("trainee") || t.includes("aprendiz")) return "estagio";
   if (t.includes("concurso") || t.includes("edital")) return "concurso";
-  if (t.includes("estagi") || t.includes("trainee")) return "estagio";
-  if (t.includes(" pj ") || t.includes("pessoa jur")) return "pj";
+  if (t.includes("consultor") || t.includes("pj")) return "pj";
   return "clt";
-}
-
-function extractReqs(text) {
-  const kws = ["excel", "word", "sei", "pacote office", "licitacao",
-    "administracao", "contabilidade", "ingles", "espanhol",
-    "ensino superior", "nivel medio", "experiencia"];
-  return kws.filter(k => text.toLowerCase().includes(k)).slice(0, 4);
 }
 
 // ── ANALISAR: Ollama ──────────────────────────────────────────────────────────
@@ -223,9 +167,7 @@ async function analisarMatch({ prompt }) {
       body: JSON.stringify({ text }),
     };
   } catch (err) {
-    if (err.name === "AbortError") {
-      throw new Error("Analise demorou mais que o esperado. Tente novamente.");
-    }
+    if (err.name === "AbortError") throw new Error("Analise demorou mais que o esperado. Tente novamente.");
     throw err;
   } finally {
     clearTimeout(timer);
