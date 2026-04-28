@@ -390,6 +390,7 @@
 
 <script>
 const GEMINI_KEY = ""; // Deixe vazio — o app usa o proxy do servidor
+const API_URL = window.location.hostname === "localhost" ? "/api/chat" : "/.netlify/functions/api";
 
 let vagasEncontradas = [];
 let curriculoSalvo = `CURRICULUM VITAE
@@ -540,7 +541,7 @@ Responda APENAS com um JSON válido correspondente, neste formato exato:
 }`;
 
   try {
-    const resp = await fetch("/api/chat", {
+    const resp = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt })
@@ -689,7 +690,7 @@ Analise a compatibilidade do currículo com cada vaga e forneça:
 Seja específico, prático e animador. Escreva em português, de forma clara e estruturada.`;
 
   try {
-    const resp = await fetch("/api/chat", {
+    const resp = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt })
