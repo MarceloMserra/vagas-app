@@ -16,23 +16,33 @@ exports.handler = async (event) => {
       return { statusCode: 500, body: JSON.stringify({ error: "GEMINI_API_KEY nao configurada no servidor" }) };
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    // Tenta modelos em ordem — se um estiver sobrecarregado, usa o proximo
+    const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+    let data, lastError;
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        tools: [{ googleSearch: {} }],
-        generationConfig: { temperature: 0.1 }
-      })
-    });
+    for (const model of models) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          tools: [{ googleSearch: {} }],
+          generationConfig: { temperature: 0.1 }
+        })
+      });
 
-    const data = await response.json();
+      data = await response.json();
 
-    if (!response.ok) {
-      throw new Error(data.error?.message || "Erro na API do Gemini");
+      if (response.ok) break; // sucesso, sai do loop
+
+      lastError = data.error?.message || "Erro na API do Gemini";
+      const isOverloaded = lastError.includes("high demand") || lastError.includes("overloaded") || response.status === 503;
+      if (!isOverloaded) throw new Error(lastError); // erro diferente, nao tenta outro modelo
+      // se sobrecarregado, tenta o proximo modelo
     }
+
+    if (!data?.candidates) throw new Error(lastError || "Todos os modelos estao indisponiveis. Tente novamente em instantes.");
 
     // Concatena todos os parts (Gemini pode dividir o texto em multiplos parts)
     const parts = data.candidates?.[0]?.content?.parts || [];
