@@ -524,9 +524,17 @@ async function buscarVagas() {
     if (data.error) throw new Error(data.error);
 
     vagasEncontradas = data.vagas || [];
-    renderVagas(vagasEncontradas);
+
+    if (vagasEncontradas.length === 0 && data.debug) {
+      const debugInfo = data.debug.map(d =>
+        `• ${d.query}: ${d.ok ? d.count + ' resultados' : '❌ ' + (d.error || 'falhou')}`
+      ).join('<br>');
+      container.innerHTML = `<div class="error-box">⚠️ Nenhuma vaga encontrada nas buscas.<br><br><small>${debugInfo}</small></div>`;
+    } else {
+      renderVagas(vagasEncontradas);
+    }
   } catch (e) {
-    const msg = `❌ Erro ao buscar vagas. Verifique sua conexão e tente novamente.<br><small>${e.message}</small>`;
+    const msg = `❌ Erro ao buscar vagas.<br><small>${e.message}</small>`;
     container.innerHTML = `<div class="error-box">${msg}</div>`;
   }
 
